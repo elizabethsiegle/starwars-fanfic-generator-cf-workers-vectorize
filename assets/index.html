@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<link rel="stylesheet" href="styles.css" />
+		<title>Star Wars ⭐️🔫Fanfic Generator📝🤖</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.14/vue.global.prod.min.js"></script>
+	</head>
+	<body>
+		<div id="app">
+			<h1>Star Wars ⭐️🔫Fanfic Generator📝🤖</h1>
+			<h3>built w/ <a href="https://developers.cloudflare.com/workers-ai/" target="_blank">Cloudflare Workers AI</a> + <a href="https://developers.cloudflare.com/vectorize/get-started/intro/" target="_blank">Vectorize</a>, <a href="https://hono.dev/" target="_blank">Hono</a>, <a href="https://www.langchain.com/" target="_blank">LangChain</a></h2>
+			<div>
+				<form>
+					<label for="modelSelect">Model:</label>
+					<select id="modelSelect" v-model="model">
+						<option v-for="model in models">{{model}}</option>
+					</select>
+				</form>
+			</div>
+			<div id="window">
+				<form @submit.prevent="sendPrompt">
+					<div class="list-container">
+						<ul class="list">
+							<label for="message-text">fav character</label>
+							<li><input type="text" id="message-text" placeholder="fav character" name="prompt" v-model="userInput" /></li>
+							<label for= "multiSelect">Ideal vacation?</label>
+							<select id="multiSelect" v-model="userInput2" multiple>
+								<option value="ice canyons">ice🧊canyons</option>
+								<option value="tropical">tropical🏝️</option>
+								<option value="cityscape">cityscape🏙️</option>
+							</select>
+							<!-- <li><input type="text" id="message-text" placeholder="" name="prompt2" v-model="userInput"/></li> -->
+						</ul>
+						<button id="generate-button" type="Submit" @click="reset">Generate!</button>
+					</div>
+						<!--@click.prevent="resetChat"-->
+				</form>
+			</div>
+			<!-- Dynamic input/output here -->
+			<div v-for="i in inOut" id="output">
+				{{i.content}}
+			</div>
+		</div>
+	<script>
+	const { createApp } = Vue;
+	const app = createApp({
+		data() {
+			const models = [
+				'@cf/meta/llama-2-7b-chat-int8',
+				'@cf/meta/llama-2-7b-chat-fp16',
+				'@cf/mistral/mistral-7b-instruct-v0.1	',
+				'@hf/thebloke/codellama-7b-instruct-awq',
+			];
+			return {
+				models,
+				model: models[0],
+				userInput: '',
+				userInput2: '',
+				inOut: [],
+			};
+		},
+		methods: {
+			reset() {
+				this.inOut = [];
+			},
+			async sendPrompt() {
+				const bodyJSON = JSON.stringify({
+					model: this.model,
+					inOut: this.inOut,
+					userInput: this.userInput,
+					userInput2: this.userInput2,
+				});
+				this.inOut.push({ content: this.userInput });
+				this.userInput = '';
+				this.userInput2 = '';
+				this.inOut.push({ content: '' });
+				const response = await fetch('/prompt', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: bodyJSON,
+				});
+				const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+				while (true) {
+					const { value, done } = await reader.read();
+					if (done) {
+						console.log('Stream done');
+						break;
+					}
+					this.inOut[this.inOut.length - 1].content += value;
+				}
+			},
+		},
+	});
+	app.mount('#app');
+	</script>
+	</body>
+</html>
